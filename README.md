@@ -1,6 +1,6 @@
 # Learn Munder Difflin
 
-一份面向二次开发者、由源码证据驱动的 Munder Difflin 交互式架构学习站。中文优先，支持中英切换、深浅主题、章节搜索、响应式导航、固定 commit 源码卡片，以及可逐步检查输入/输出/源码的端到端调用链。
+一套面向二次开发者、由源码证据驱动的 Munder Difflin 交互式架构课程。中文优先，用 6 个阶段、27 个连续课时从系统边界逐步深入到进程、协调、状态、系统边缘和二次开发实战，而不是只提供模块索引。
 
 在线访问：<https://xxiaoxiong.github.io/learn-munder-difflin/>
 
@@ -38,7 +38,17 @@ flowchart LR
 - SQLite / config / roster / Hive files / runtime memory / CLI storage 五层状态权威
 - Git worktree 隔离、dirty/ahead 保全与 `gh` adapter 边界
 - Realtime voice、Slack/Webhook/tunnel、本地 OTLP、PostHog 和 updater
-- 12 个源码域、8 条端到端调用链、8 级学习路线与企业平台复用判断
+- 12 个源码域、8 条端到端调用链、6 阶段课程路线与企业平台复用判断
+
+## 学习体验
+
+- 每课明确核心问题、前置课程、学习目标、阅读时长与完成标准。
+- 复杂概念按“建立直觉 → 追踪机制 → 识别不变量 → 检查理解”逐层展开。
+- 架构实验室可推演 Agent 创建、消息路由和状态权威，观察条件变化如何改变调用链。
+- 48 个核心术语支持搜索和分层筛选，并链接回对应课程。
+- 15 道情境自测提供即时解释、薄弱阶段诊断和定向复习入口。
+- 学习进度保存在本地浏览器，可从首页继续下一课。
+- 45 个新增课程源码锚点与原站证据均固定到同一 upstream commit。
 
 ## 本地运行
 
@@ -69,7 +79,7 @@ npm run build
 
 ## 实现
 
-Next.js 16、React 19、TypeScript 与原生 CSS。站点没有运行时后端或数据库依赖，可直接部署到 Vercel。交互图使用语义化 HTML/CSS 实现，移动端可以横向浏览长调用链。
+Next.js 16、React 19、TypeScript 与原生 CSS。站点没有运行时后端或数据库依赖，静态导出后由 GitHub Pages 发布。交互图使用语义化 HTML/CSS 实现；课程导航、实验室、术语库和自测均有移动端布局。
 
 ## 声明
 

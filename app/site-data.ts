@@ -1,3 +1,5 @@
+import { courseNavigation, deepPages, lessonSupplements, pagePatches } from "./course-data";
+
 export const SOURCE_SHA = "956bfb4cff1af97f9cf29b9ce489ae69a5774843";
 export const SOURCE_SHORT_SHA = SOURCE_SHA.slice(0, 8);
 export const UPSTREAM_REPO = "https://github.com/chaitanyagiri/munder-difflin";
@@ -25,6 +27,12 @@ export type Section = {
   diagram?: DiagramKey;
   sources?: SourceRef[];
   callout?: { tone: "fact" | "warning" | "insight"; text: Localized };
+  layers?: {
+    intuition: Localized;
+    mechanism: Localized[];
+    invariants?: Localized[];
+    checkpoint?: { question: Localized; answer: Localized };
+  };
 };
 
 export type PageData = {
@@ -35,6 +43,21 @@ export type PageData = {
   summary: Localized;
   readTime: number;
   sections: Section[];
+  phase?: number;
+  lesson?: number;
+  level?: "入门" | "进阶" | "深入" | "实战";
+  keyQuestion?: Localized;
+  objectives?: Localized[];
+  prerequisites?: string[];
+  takeaways?: Localized[];
+};
+
+export type NavigationItem = {
+  slug: string;
+  label: Localized;
+  group: Localized;
+  phase: number;
+  lesson: number;
 };
 
 export type DiagramKey =
@@ -58,7 +81,7 @@ const s = (
   confidence: SourceRef["confidence"] = "verified",
 ): SourceRef => ({ path, lines, symbols, note: l(zh, en), confidence });
 
-export const navigation = [
+export const legacyNavigation = [
   { slug: "", label: l("首页", "Overview"), group: l("开始", "Start") },
   { slug: "architecture", label: l("架构总览", "Architecture"), group: l("核心", "Core") },
   { slug: "runtime", label: l("Agent 启动链", "Agent launch"), group: l("核心", "Core") },
@@ -90,7 +113,7 @@ export const supportedProviders = [
   "Custom",
 ];
 
-export const pages: Record<string, PageData> = {
+const basePages: Record<string, PageData> = {
   architecture: {
     slug: "architecture",
     nav: l("架构总览", "Architecture"),
@@ -623,6 +646,18 @@ export const pages: Record<string, PageData> = {
     ],
   },
 };
+
+const enhancedBasePages = Object.fromEntries(
+  Object.entries(basePages).map(([slug, current]) => {
+    const patch = pagePatches[slug];
+    if (!patch) return [slug, current];
+    const { appendSections = [], ...metadata } = patch;
+    return [slug, { ...current, ...metadata, sections: [...current.sections, ...appendSections, ...(lessonSupplements[slug] ?? [])] }];
+  }),
+) as Record<string, PageData>;
+
+export const pages: Record<string, PageData> = { ...enhancedBasePages, ...deepPages };
+export const navigation = courseNavigation;
 
 export const sourceDomains = [
   {

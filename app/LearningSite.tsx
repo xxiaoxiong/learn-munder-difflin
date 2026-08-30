@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArchitectureDiagram } from "./Diagrams";
+import { ArchitectureLab, GlossaryExplorer, KnowledgeCheck } from "./CourseInteractions";
+import { coursePhases } from "./course-data";
 import { Icon } from "./icons";
 import {
   callFlows,
@@ -40,6 +42,16 @@ const ui = {
     copied: "已复制",
     sourceMap: "打开源码",
     noResult: "没有匹配的章节",
+    complete: "标记本课完成",
+    completed: "本课已完成",
+    courseProgress: "课程进度",
+    objectives: "学完你能",
+    keyQuestion: "本课核心问题",
+    prerequisites: "建议先学",
+    noPrerequisite: "无需前置课程",
+    layered: ["先建立直觉", "再走机制", "守住不变量", "检查理解"],
+    reveal: "查看答案",
+    hide: "收起答案",
   },
   en: {
     project: "Architecture field guide",
@@ -57,6 +69,16 @@ const ui = {
     copied: "Copied",
     sourceMap: "Open source",
     noResult: "No matching chapter",
+    complete: "Mark lesson complete",
+    completed: "Lesson complete",
+    courseProgress: "Course progress",
+    objectives: "You will be able to",
+    keyQuestion: "Key question",
+    prerequisites: "Recommended first",
+    noPrerequisite: "No prerequisite",
+    layered: ["Build intuition", "Trace mechanics", "Protect invariants", "Check understanding"],
+    reveal: "Reveal answer",
+    hide: "Hide answer",
   },
 };
 
@@ -95,20 +117,23 @@ function Header({
   );
 }
 
-function Sidebar({ slug, locale, open, close }: { slug: string; locale: Locale; open: boolean; close: () => void }) {
-  const groups = [...new Set(navigation.map((item) => text(item.group, locale)))];
+function Sidebar({ slug, locale, open, close, completed }: { slug: string; locale: Locale; open: boolean; close: () => void; completed: string[] }) {
+  const completeCount = navigation.filter((item) => item.slug && completed.includes(item.slug)).length;
+  const lessonCount = navigation.filter((item) => item.slug).length;
   return (
     <>
       <div className={`nav-scrim ${open ? "visible" : ""}`} onClick={close} />
       <aside className={`sidebar ${open ? "open" : ""}`}>
         <div className="sidebar-mobile-head"><span>{ui[locale].project}</span><button className="icon-button" onClick={close}><Icon name="close" /></button></div>
+        <div className="sidebar-progress"><div><span>{ui[locale].courseProgress}</span><b>{completeCount}/{lessonCount}</b></div><i><em style={{ width: `${(completeCount / lessonCount) * 100}%` }} /></i></div>
         <nav aria-label="Learning guide chapters">
-          {groups.map((group) => (
-            <div className="nav-group" key={group}>
-              <p>{group}</p>
-              {navigation.filter((item) => text(item.group, locale) === group).map((item) => {
+          {coursePhases.map((phase) => (
+            <div className="nav-group" key={phase.id}>
+              <p><span>PHASE {phase.id}</span>{text(phase.label, locale)}</p>
+              {navigation.filter((item) => item.phase === phase.id).map((item) => {
                 const isActive = item.slug === slug;
-                return <Link className={isActive ? "active" : ""} href={`/${item.slug}`} key={item.slug || "home"} onClick={close}><span>{text(item.label, locale)}</span>{isActive && <i />}</Link>;
+                const done = Boolean(item.slug && completed.includes(item.slug));
+                return <Link className={`${isActive ? "active" : ""} ${done ? "done" : ""}`} href={`/${item.slug}`} key={item.slug || "home"} onClick={close}><em>{String(item.lesson).padStart(2, "0")}</em><span>{text(item.label, locale)}</span>{done && <Icon name="check" size={12} />}{isActive && <i />}</Link>;
               })}
             </div>
           ))}
@@ -159,6 +184,19 @@ function SourceCard({ source, locale }: { source: SourceRef; locale: Locale }) {
   );
 }
 
+function LayeredExplainer({ layers, locale }: { layers: NonNullable<(typeof pages)[string]["sections"][number]["layers"]>; locale: Locale }) {
+  const available = ["intuition", "mechanism", ...(layers.invariants?.length ? ["invariants"] : []), ...(layers.checkpoint ? ["checkpoint"] : [])] as ("intuition" | "mechanism" | "invariants" | "checkpoint")[];
+  const [active, setActive] = useState<(typeof available)[number]>("intuition");
+  const [revealed, setRevealed] = useState(false);
+  const labels = { intuition: ui[locale].layered[0], mechanism: ui[locale].layered[1], invariants: ui[locale].layered[2], checkpoint: ui[locale].layered[3] };
+  return <div className="layered-explainer"><div className="layer-tabs" role="tablist">{available.map((id, index) => <button role="tab" aria-selected={active === id} className={active === id ? "active" : ""} onClick={() => setActive(id)} key={id}><em>{String(index + 1).padStart(2, "0")}</em>{labels[id]}</button>)}</div><div className="layer-panel" role="tabpanel">
+    {active === "intuition" && <p className="intuition-copy">{text(layers.intuition, locale)}</p>}
+    {active === "mechanism" && <ol>{layers.mechanism.map((item, index) => <li key={index}><span>{index + 1}</span>{text(item, locale)}</li>)}</ol>}
+    {active === "invariants" && <ul>{layers.invariants?.map((item, index) => <li key={index}><Icon name="check" size={14} />{text(item, locale)}</li>)}</ul>}
+    {active === "checkpoint" && layers.checkpoint && <div className="checkpoint"><span>CHECKPOINT</span><h3>{text(layers.checkpoint.question, locale)}</h3><button onClick={() => setRevealed((value) => !value)}>{revealed ? ui[locale].hide : ui[locale].reveal}</button>{revealed && <p>{text(layers.checkpoint.answer, locale)}</p>}</div>}
+  </div></div>;
+}
+
 function SectionBlock({ section, index, locale }: { section: (typeof pages)[string]["sections"][number]; index: number; locale: Locale }) {
   return (
     <section className="content-section" id={section.id}>
@@ -170,6 +208,7 @@ function SectionBlock({ section, index, locale }: { section: (typeof pages)[stri
         {section.paragraphs?.map((paragraph, i) => <p key={i}>{text(paragraph, locale)}</p>)}
         {section.bullets && <ul className="fact-list">{section.bullets.map((bullet, i) => <li key={i}><span>0{i + 1}</span>{text(bullet, locale)}</li>)}</ul>}
         {section.callout && <div className={`callout ${section.callout.tone}`}><strong>{section.callout.tone === "warning" ? "WATCH" : section.callout.tone === "fact" ? "SOURCE FACT" : "ARCHITECTURE NOTE"}</strong><p>{text(section.callout.text, locale)}</p></div>}
+        {section.layers && <LayeredExplainer layers={section.layers} locale={locale} />}
       </div>
       {section.diagram && <ArchitectureDiagram kind={section.diagram} locale={locale} />}
       {section.sources && <div className="evidence-block"><div className="evidence-label"><span>{ui[locale].source}</span><i /></div><div className="source-grid">{section.sources.map((source, i) => <SourceCard source={source} locale={locale} key={`${source.path}-${i}`} />)}</div></div>}
@@ -177,7 +216,7 @@ function SectionBlock({ section, index, locale }: { section: (typeof pages)[stri
   );
 }
 
-function Home({ locale }: { locale: Locale }) {
+function Home({ locale, completed }: { locale: Locale; completed: string[] }) {
   const c = locale === "zh" ? {
     kicker: "面向二次开发者的源码架构学习站",
     titleA: "看懂一个",
@@ -200,6 +239,10 @@ function Home({ locale }: { locale: Locale }) {
     trailLead: "从边界到执行，再到协作与二次开发判断。每章都附固定 commit 的源码锚点。",
     capabilities: "被管理的外部 Runtime",
     capabilitiesLead: "支持不等于行为完全一致。provider preset 明确记录了参数、hook 与 resume 能力差异。",
+    curriculum: "六个阶段，把复杂系统逐层讲透",
+    curriculumLead: "每一阶段都有明确产出；先建立边界，再追进程、协调、状态与系统边缘，最后用实验验证。",
+    resume: "继续学习",
+    completeLabel: "已完成",
   } : {
     kicker: "A source-grounded architecture guide for builders",
     titleA: "Understand how an",
@@ -222,8 +265,14 @@ function Home({ locale }: { locale: Locale }) {
     trailLead: "Move from boundaries to execution, coordination, then extension decisions. Every chapter includes pinned source anchors.",
     capabilities: "Managed external runtimes",
     capabilitiesLead: "Support does not mean identical behavior. Provider presets explicitly describe argument, hook, and resume differences.",
+    curriculum: "Six phases that build a deep system model",
+    curriculumLead: "Each phase has an outcome: boundary first, then process, coordination, state, perimeter, and hands-on validation.",
+    resume: "Continue learning",
+    completeLabel: "completed",
   };
-  const trail = [navigation[1], navigation[2], navigation[3], navigation[5], navigation[9], navigation[12]];
+  const trailSlugs = ["orientation", "architecture", "runtime", "hive", "state", "architecture-lab"];
+  const trail = trailSlugs.map((slug) => navigation.find((item) => item.slug === slug)).filter((item): item is (typeof navigation)[number] => Boolean(item));
+  const nextLesson = navigation.find((item) => item.slug && !completed.includes(item.slug)) ?? navigation[1];
   return (
     <>
       <section className="hero">
@@ -232,7 +281,8 @@ function Home({ locale }: { locale: Locale }) {
           <div className="hero-kicker"><span>●</span>{c.kicker}</div>
           <h1>{c.titleA}<br /><em>{c.titleB}</em><br />{c.titleC}</h1>
           <p>{c.lead}</p>
-          <div className="hero-actions"><Link className="button primary" href="/architecture">{c.start}<Icon name="arrow" /></Link><Link className="button secondary" href="/source-map">{c.map}</Link></div>
+          <div className="hero-actions"><Link className="button primary" href="/learning-path">{c.start}<Icon name="arrow" /></Link><Link className="button secondary" href="/source-map">{c.map}</Link></div>
+          <Link className="resume-card" href={`/${nextLesson.slug}`}><span>{c.resume}</span><b>{String(nextLesson.lesson).padStart(2, "0")} · {text(nextLesson.label, locale)}</b><em>{completed.length}/{navigation.length - 1} {c.completeLabel}<Icon name="arrow" size={15} /></em></Link>
         </div>
         <div className="hero-console" aria-label="Architecture summary terminal">
           <div className="console-bar"><span><i /><i /><i /></span><code>architecture.boundary</code><b>LIVE</b></div>
@@ -256,6 +306,11 @@ function Home({ locale }: { locale: Locale }) {
       <section className="home-section provider-section">
         <div className="section-intro"><span className="eyebrow">PROVIDER SURFACE</span><h2>{c.capabilities}</h2><p>{c.capabilitiesLead}</p></div>
         <div className="provider-cloud">{supportedProviders.map((provider, index) => <span key={provider}><i style={{"--delay": `${index * 90}ms`} as React.CSSProperties} />{provider}</span>)}</div>
+      </section>
+
+      <section className="home-section curriculum-section">
+        <div className="section-intro"><span className="eyebrow">COURSE ARCHITECTURE</span><h2>{c.curriculum}</h2><p>{c.curriculumLead}</p></div>
+        <div className="phase-grid">{coursePhases.map((phase) => { const items = navigation.filter((item) => item.slug && item.phase === phase.id); const done = items.filter((item) => completed.includes(item.slug)).length; return <article key={phase.id}><div><em>0{phase.id}</em><span>{done}/{items.length}</span></div><h3>{text(phase.label, locale)}</h3><p>{text(phase.outcome, locale)}</p><i><b style={{ width: `${items.length ? (done / items.length) * 100 : 0}%` }} /></i><Link href={`/${items[0]?.slug}`}>{locale === "zh" ? "进入阶段" : "Enter phase"}<Icon name="arrow" size={14} /></Link></article>; })}</div>
       </section>
 
       <section className="home-section trail-section">
@@ -283,16 +338,26 @@ function CallFlowsPage({ locale }: { locale: Locale }) {
 
 function LearningPathPage({ locale }: { locale: Locale }) {
   const page = pages["learning-path"];
-  return <><PageHero page={page} locale={locale} /><div className="learning-road"><div className="road-line" />{learningLevels.map((item) => <Link href={item.href} className="road-level" key={item.level}><em>{String(item.level).padStart(2, "0")}</em><div><span>LEVEL {item.level}</span><h2>{text(item.title, locale)}</h2><p>{text(item.text, locale)}</p></div><Icon name="arrow" /></Link>)}</div></>;
+  return <><PageHero page={page} locale={locale} /><div className="path-phases">{coursePhases.map((phase) => { const lessons = navigation.filter((item) => item.slug && item.phase === phase.id); return <section key={phase.id}><div className="path-phase-head"><em>PHASE {phase.id}</em><div><h2>{text(phase.label, locale)}</h2><p>{text(phase.outcome, locale)}</p></div></div><div>{lessons.map((item) => <Link href={`/${item.slug}`} key={item.slug}><span>{String(item.lesson).padStart(2, "0")}</span><b>{text(item.label, locale)}</b><small>{pages[item.slug]?.readTime} {ui[locale].read}</small><Icon name="arrow" size={15} /></Link>)}</div></section>; })}</div><div className="learning-road compact-road"><div className="road-line" />{learningLevels.map((item) => <Link href={item.href} className="road-level" key={item.level}><em>{String(item.level).padStart(2, "0")}</em><div><span>READER ROUTE {item.level}</span><h2>{text(item.title, locale)}</h2><p>{text(item.text, locale)}</p></div><Icon name="arrow" /></Link>)}</div></>;
 }
 
 function PageHero({ page, locale }: { page: (typeof pages)[string]; locale: Locale }) {
-  return <section className="page-hero"><div className="page-hero-meta"><span>{text(page.kicker, locale)}</span><span>{page.readTime} {ui[locale].read}</span></div><h1>{text(page.title, locale)}</h1><p>{text(page.summary, locale)}</p><div className="page-rule"><i /></div></section>;
+  return <section className="page-hero"><div className="page-hero-meta"><span>{text(page.kicker, locale)}</span><span>{page.readTime} {ui[locale].read}</span>{page.level && <span>{page.level}</span>}</div><h1>{text(page.title, locale)}</h1><p>{text(page.summary, locale)}</p>{page.keyQuestion && <div className="lesson-contract"><div className="contract-question"><span>{ui[locale].keyQuestion}</span><strong>{text(page.keyQuestion, locale)}</strong></div><div className="contract-objectives"><span>{ui[locale].objectives}</span><ul>{page.objectives?.map((objective, index) => <li key={index}><Icon name="check" size={14} />{text(objective, locale)}</li>)}</ul></div><div className="contract-prerequisites"><span>{ui[locale].prerequisites}</span>{page.prerequisites?.length ? <div>{page.prerequisites.map((prerequisite) => { const navItem = navigation.find((item) => item.slug === prerequisite); return <Link href={`/${prerequisite}`} key={prerequisite}>{navItem ? text(navItem.label, locale) : prerequisite}<Icon name="arrow" size={12} /></Link>; })}</div> : <p>{ui[locale].noPrerequisite}</p>}</div></div>}<div className="page-rule"><i /></div></section>;
 }
+
+function ArchitectureLabPage({ locale }: { locale: Locale }) { return <><PageHero page={pages["architecture-lab"]} locale={locale} /><ArchitectureLab locale={locale} /></>; }
+function GlossaryPage({ locale }: { locale: Locale }) { return <><PageHero page={pages.glossary} locale={locale} /><GlossaryExplorer locale={locale} /></>; }
+function SelfCheckPage({ locale }: { locale: Locale }) { return <><PageHero page={pages["self-check"]} locale={locale} /><KnowledgeCheck locale={locale} /></>; }
 
 function GenericPage({ slug, locale }: { slug: string; locale: Locale }) {
   const page = pages[slug];
   return <><PageHero page={page} locale={locale} /><div className="article-layout"><article className="article-content">{page.sections.map((section, index) => <SectionBlock section={section} index={index} locale={locale} key={section.id} />)}</article><aside className="page-toc"><span>{ui[locale].toc}</span>{page.sections.map((section, index) => <a href={`#${section.id}`} key={section.id}><i>{String(index + 1).padStart(2, "0")}</i>{text(section.title, locale)}</a>)}</aside></div></>;
+}
+
+function LessonCompletion({ slug, locale, completed, toggle }: { slug: string; locale: Locale; completed: boolean; toggle: () => void }) {
+  const page = pages[slug];
+  if (!page) return null;
+  return <section className={`lesson-completion ${completed ? "done" : ""}`}><div><span>{completed ? "LESSON COMPLETE" : "LESSON CHECKPOINT"}</span><h2>{completed ? ui[locale].completed : (locale === "zh" ? "能用自己的话回答核心问题了吗？" : "Can you answer the key question in your own words?")}</h2>{page.takeaways?.map((item, index) => <p key={index}><Icon name="check" size={14} />{text(item, locale)}</p>)}</div><button onClick={toggle}><Icon name="check" size={18} />{completed ? ui[locale].completed : ui[locale].complete}</button></section>;
 }
 
 function PageFooter({ slug, locale }: { slug: string; locale: Locale }) {
@@ -309,6 +374,7 @@ export default function LearningSite({ slug }: { slug: string }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [preferencesReady, setPreferencesReady] = useState(false);
+  const [completed, setCompleted] = useState<string[]>([]);
 
   /* One-time reconciliation with browser-owned preferences after SSR. */
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -317,6 +383,7 @@ export default function LearningSite({ slug }: { slug: string }) {
     const savedTheme = localStorage.getItem("md-theme") as "light" | "dark" | null;
     if (savedLocale === "zh" || savedLocale === "en") setLocaleState(savedLocale);
     if (savedTheme === "light" || savedTheme === "dark") setThemeState(savedTheme);
+    try { const savedCompleted = JSON.parse(localStorage.getItem("md-course-completed") ?? "[]"); if (Array.isArray(savedCompleted)) setCompleted(savedCompleted.filter((item): item is string => typeof item === "string")); } catch { /* Ignore malformed browser cache. */ }
     setPreferencesReady(true);
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -333,15 +400,17 @@ export default function LearningSite({ slug }: { slug: string }) {
   const setLocale = (value: Locale) => setLocaleState(value);
   const setTheme = (value: "light" | "dark") => setThemeState(value);
   const chapter = useMemo(() => navigation.findIndex((item) => item.slug === slug), [slug]);
-  const special = slug === "source-map" ? <SourceMapPage locale={locale} /> : slug === "call-flows" ? <CallFlowsPage locale={locale} /> : slug === "learning-path" ? <LearningPathPage locale={locale} /> : slug ? <GenericPage slug={slug} locale={locale} /> : <Home locale={locale} />;
+  const special = slug === "source-map" ? <SourceMapPage locale={locale} /> : slug === "call-flows" ? <CallFlowsPage locale={locale} /> : slug === "learning-path" ? <LearningPathPage locale={locale} /> : slug === "architecture-lab" ? <ArchitectureLabPage locale={locale} /> : slug === "glossary" ? <GlossaryPage locale={locale} /> : slug === "self-check" ? <SelfCheckPage locale={locale} /> : slug ? <GenericPage slug={slug} locale={locale} /> : <Home locale={locale} completed={completed} />;
+  const toggleCompleted = () => setCompleted((items) => { const next = items.includes(slug) ? items.filter((item) => item !== slug) : [...items, slug]; localStorage.setItem("md-course-completed", JSON.stringify(next)); return next; });
 
   return (
     <div className="site-shell">
       <Header locale={locale} setLocale={setLocale} theme={theme} setTheme={setTheme} openNav={() => setNavOpen(true)} onSearch={() => setSearchOpen(true)} />
-      <Sidebar slug={slug} locale={locale} open={navOpen} close={() => setNavOpen(false)} />
+      <Sidebar slug={slug} locale={locale} open={navOpen} close={() => setNavOpen(false)} completed={completed} />
       <main className="main-column">
         {slug && <div className="chapter-rail"><span>CHAPTER {String(chapter).padStart(2, "0")}</span><i><b style={{ width: `${Math.max(5, (chapter / (navigation.length - 1)) * 100)}%` }} /></i></div>}
         {special}
+        {slug && <LessonCompletion slug={slug} locale={locale} completed={completed.includes(slug)} toggle={toggleCompleted} />}
         <PageFooter slug={slug} locale={locale} />
       </main>
       <button className={`snapshot-pill ${copied ? "copied" : ""}`} onClick={async () => { await navigator.clipboard.writeText(SOURCE_SHA); setCopied(true); setTimeout(() => setCopied(false), 1400); }}><Icon name={copied ? "check" : "copy"} size={14} /><span>{copied ? ui[locale].copied : SOURCE_SHORT_SHA}</span></button>
