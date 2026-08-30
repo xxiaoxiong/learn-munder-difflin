@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 const root = new URL("../", import.meta.url);
@@ -55,4 +57,61 @@ test("practice surfaces include labs, glossary, quiz, and durable progress", asy
   assert.match(site, /md-course-completed/);
   assert.match(site, /LayeredExplainer/);
   assert.match(site, /LessonCompletion/);
+});
+
+test("course graph is sequential, localized, and internally linked", () => {
+  const audit = String.raw`
+    const m = await import('./app/course-data.ts');
+    const issues = [];
+    const nav = m.courseNavigation;
+    const bySlug = new Map(nav.map((item) => [item.slug, item]));
+    if (new Set(nav.map((item) => item.slug)).size !== nav.length) issues.push('duplicate navigation slug');
+    nav.forEach((item, index) => {
+      if (item.lesson !== index) issues.push('lesson sequence: ' + item.slug);
+      if (!item.label.zh.trim() || !item.label.en.trim()) issues.push('navigation locale: ' + item.slug);
+    });
+    const assertLocalized = (value, path = 'root') => {
+      if (!value || typeof value !== 'object') return;
+      if ('zh' in value || 'en' in value) {
+        if (typeof value.zh !== 'string' || !value.zh.trim() || typeof value.en !== 'string' || !value.en.trim()) issues.push('localized copy: ' + path);
+        return;
+      }
+      for (const [key, child] of Object.entries(value)) assertLocalized(child, path + '.' + key);
+    };
+    assertLocalized(m.coursePhases, 'phases');
+    assertLocalized(m.deepPages, 'pages');
+    assertLocalized(m.glossaryTerms, 'terms');
+    assertLocalized(m.quizQuestions, 'quiz');
+    for (const [slug, page] of Object.entries(m.deepPages)) {
+      const item = bySlug.get(slug);
+      if (!item || page.slug !== slug || page.lesson !== item.lesson || page.phase !== item.phase) issues.push('page/nav mismatch: ' + slug);
+      if (!page.keyQuestion || !page.objectives?.length || !page.takeaways?.length) issues.push('lesson contract: ' + slug);
+      if (!['architecture-lab', 'self-check', 'glossary'].includes(slug) && page.sections.length < 3) issues.push('lesson depth: ' + slug);
+      for (const prerequisite of page.prerequisites ?? []) {
+        const required = bySlug.get(prerequisite);
+        if (!required || required.lesson >= item.lesson) issues.push('prerequisite: ' + prerequisite + ' -> ' + slug);
+      }
+    }
+    const lessonLinkExists = (href) => bySlug.has(href.startsWith('/') ? href.slice(1) : href);
+    if (new Set(m.glossaryTerms.map((item) => item.term)).size !== m.glossaryTerms.length) issues.push('duplicate glossary term');
+    for (const item of m.glossaryTerms) if (!lessonLinkExists(item.href)) issues.push('term link: ' + item.term);
+    for (const item of m.quizQuestions) {
+      if (item.answer < 0 || item.answer >= item.options.length || item.options.length < 3) issues.push('quiz answer: ' + item.id);
+      if (!lessonLinkExists(item.href)) issues.push('quiz link: ' + item.id);
+    }
+    for (const item of m.labFacts) if (!lessonLinkExists(item.lesson)) issues.push('lab link: ' + item.id);
+    console.log(JSON.stringify({ issues, nav: nav.length, pages: Object.keys(m.deepPages).length, terms: m.glossaryTerms.length, quiz: m.quizQuestions.length }));
+    if (issues.length) process.exitCode = 1;
+  `;
+  const result = spawnSync(process.execPath, ["--experimental-strip-types", "--experimental-specifier-resolution=node", "--input-type=module", "-e", audit], {
+    cwd: fileURLToPath(root),
+    encoding: "utf8",
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const report = JSON.parse(result.stdout.trim());
+  assert.deepEqual(report.issues, []);
+  assert.equal(report.nav, 28);
+  assert.ok(report.pages >= 15);
+  assert.ok(report.terms >= 48);
+  assert.ok(report.quiz >= 15);
 });
