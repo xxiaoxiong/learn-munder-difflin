@@ -2,6 +2,8 @@
 
 一份面向二次开发者、由源码证据驱动的 Munder Difflin 交互式架构学习站。中文优先，支持中英切换、深浅主题、章节搜索、响应式导航、固定 commit 源码卡片，以及可逐步检查输入/输出/源码的端到端调用链。
 
+在线访问：<https://xxiaoxiong.github.io/learn-munder-difflin/>
+
 > 分析基线：[`chaitanyagiri/munder-difflin@956bfb4c`](https://github.com/chaitanyagiri/munder-difflin/tree/956bfb4cff1af97f9cf29b9ce489ae69a5774843)，获取于 2026-08-30。所有源码链接固定到该 commit，不会随 upstream `main` 漂移。
 
 ## 架构结论
