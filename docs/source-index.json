@@ -1,0 +1,19 @@
+{
+  "upstream": "https://github.com/chaitanyagiri/munder-difflin",
+  "commit": "956bfb4cff1af97f9cf29b9ce489ae69a5774843",
+  "analyzedAt": "2026-08-30",
+  "domains": [
+    { "id": "bootstrap", "files": ["src/main/index.ts", "electron.vite.config.ts", "package.json"], "symbols": ["app.whenReady", "bootstrapHiveServices", "createWindow", "teardownAndQuit"] },
+    { "id": "electron-ipc", "files": ["src/preload/index.ts", "src/preload/index.d.ts", "src/main/index.ts"], "symbols": ["contextBridge.exposeInMainWorld", "api", "ipcMain.handle"] },
+    { "id": "agent-runtime", "files": ["src/main/pty.ts", "src/main/ptyEnv.ts", "src/main/procKill.ts", "src/main/workerLaunch.ts"], "symbols": ["PtyManager", "buildPtyEnv", "ensureKilled", "tokenizeWorkerCommand"] },
+    { "id": "orchestration", "files": ["src/main/hive.ts", "src/main/hooks.ts", "src/main/control.ts", "src/shared/agentProvider.ts"], "symbols": ["HiveManager", "HookServer", "ControlRegistry", "AgentProviderPreset"] },
+    { "id": "tasks-messaging", "files": ["src/main/hive.ts", "src/shared/taskLedger.ts", "src/renderer/src/hooks/useHive.ts", "src/renderer/src/hooks/queueDelivery.ts"], "symbols": ["HiveTask", "routeMessage", "mergeTaskLedger", "deliverWithAcknowledgement"] },
+    { "id": "safety", "files": ["src/main/breaker.ts", "src/main/closingTime.ts", "src/main/workerWake.ts", "src/main/costLifetime.ts"], "symbols": ["CircuitBreaker", "ClosingTimeController", "WorkerWakeWatchdog", "CostLedgerTotals"] },
+    { "id": "state-db", "files": ["src/main/db.ts", "src/main/config.ts", "src/main/roster.ts", "src/renderer/src/store/store.ts"], "symbols": ["PersistStore", "readConfig", "RosterStore", "useStore"] },
+    { "id": "git-workspace", "files": ["src/main/git.ts", "src/main/github.ts", "src/renderer/src/components/GitTab.tsx", "src/renderer/src/ide/GitPanes.tsx"], "symbols": ["addWorktree", "worktreeHasUnintegratedWork", "checkoutRef", "listIssues"] },
+    { "id": "renderer", "files": ["src/renderer/src/App.tsx", "src/renderer/src/scene/office/OfficeFloor.tsx", "src/renderer/src/components/terminalPool.ts", "src/renderer/src/hooks/usePtyParser.ts"], "symbols": ["App", "OfficeFloor", "TerminalEntry", "usePtyParser"] },
+    { "id": "memory-knowledge", "files": ["src/main/memory.ts", "src/main/knowledge.ts", "src/main/kg-core.cjs", "src/renderer/src/components/MemoryGraphPanel.tsx"], "symbols": ["MemoryManager", "KnowledgeManager", "MemoryGraphPanel"] },
+    { "id": "realtime-perimeter", "files": ["src/main/realtime.ts", "src/main/realtimeActions.ts", "src/main/slack.ts", "src/main/webhook.ts", "src/renderer/src/realtime/session.ts"], "symbols": ["RealtimeSession", "realtimeAction", "SlackServer", "WebhookServer"] },
+    { "id": "observability", "files": ["src/main/telemetry.ts", "src/main/analytics.ts", "src/main/transcript.ts", "src/main/updater.ts"], "symbols": ["TelemetryCollector", "Analytics", "readAgentUsage", "initAutoUpdater"] }
+  ]
+}
